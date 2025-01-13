@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_cors import cross_origin
 from scraping import scrape_all_products, get_single_price
+from database import get_DB_version
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -249,6 +250,11 @@ def scrape():
 def scrape_single_price():
     results = get_single_price("https://www.harveynorman.com.au/kitchenaid-artisan-stand-mixer-porcelain-white.html", "Harvey Norman")
     return jsonify(results, 200)
+
+@app.route("/api/database/test", methods=["GET"])
+def db_connect():
+    return jsonify(get_DB_version())
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
