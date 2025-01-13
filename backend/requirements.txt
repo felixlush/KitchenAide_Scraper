@@ -1,0 +1,7 @@
+Flask==3.0.3
+Flask-Cors==5.0.0
+psycopg2-binary==2.9.10
+playwright==1.49.1
+playwright-stealth==1.0.6
+beautifulsoup4==4.11.1
+requests==2.27.1
