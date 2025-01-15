@@ -4,7 +4,14 @@ module.exports = {
     "./index.js" ,"./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      backgroundImage: {
+        'hero-pattern': "url('/src/assets/hero-background.jpg')"
+      },
+      transitionProperty: {
+        'width' : 'width'
+      }
+    },
   },
   plugins: [],
 }

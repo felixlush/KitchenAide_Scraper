@@ -7,16 +7,16 @@ from playwright_stealth import stealth_sync
 
 def scrape_all_products(products):
     results = []
-    
+    response = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36") 
         page = context.new_page()
 
         for product in products:
-            name = product.get("Name")
-            company = product.get("Company")
-            url = product.get("URL")
+            name = product.get("name")
+            company = product.get("company")
+            url = product.get("url")
             
             match company:
                 case "Harvey Norman":
@@ -26,14 +26,15 @@ def scrape_all_products(products):
                     price = get_david_jones_price(page, url)
                 case "Myer":
                     price = get_myer_price(page, url)
-                case "JB HI FI":
+                case "JBHIFI":
                     price = get_jb_price(page, url)
                 case "The Good Guys":
                     price = get_good_guys_price(page, url)
                 case "Kitchen Warehouse":
                     price = get_kitchen_warehouse_price(page, url)
                 case "Harvey Norman NZ":
-                    price = get_harvey_norman_nz_price(page, url)
+                    # price = get_harvey_norman_nz_price(page, url)
+                    price = "N/A Harvey Norman Got Bot Detection"
                 case "Stevens NZ":
                     price = get_stevens_price(page, url)
                 case _:
@@ -62,7 +63,7 @@ def get_single_price(url, company):
                 price = get_david_jones_price(page, url)
             case "Myer":
                 price = get_myer_price(page, url)
-            case "JB HI FI":
+            case "JBHIFI":
                 price = get_jb_price(page, url)
             case "The Good Guys":
                 price = get_good_guys_price(page, url)
@@ -101,13 +102,18 @@ def get_harvey_norman_au_price(playwright_page, url): #Bot Detection
         return "N/A"
 
 
-def get_david_jones_price(playwright_page, url):
+def get_david_jones_price(playwright_page, url): #Need to fix picking up on discount when its not the first div
     try:
         playwright_page.goto(url, wait_until="networkidle", timeout=10000)
         playwright_page.wait_for_selector("div.pricing", timeout=10000)
 
-        price_element = playwright_page.locator("p.price.now span.price-display")
-        price = price_element.text_content().strip()
+        price_element = playwright_page.locator("p.price.now span.price-display").first
+        if price_element.count() > 0:
+            price = price_element.text_content().strip()
+        else:
+            price_element = playwright_page.locator("span.price-display").first
+            price = price_element.text_content().strip()
+        
 
         return price
     except Exception as e:
@@ -115,13 +121,15 @@ def get_david_jones_price(playwright_page, url):
         return "N/A"
 
 
-def get_myer_price(playwright_page, url):
+def get_myer_price(playwright_page, url): #Need to fix picking up on discount when its not the first div
     try:
-        playwright_page.goto(url, wait_until="networkidle", timeout=10000)
-        playwright_page.wait_for_selector("div.css-1y4cb6d", timeout=10000)
-
-        price_element = playwright_page.locator("p.css-1mxfaop").first
-        price = price_element.text_content().strip()
+        playwright_page.goto(url, wait_until="domcontentloaded", timeout=10000)
+        product_price_now = playwright_page.locator('p[data-automation="product-price-now"]')
+        if product_price_now.count() > 0:
+            price = product_price_now.first.text_content().strip()
+        else:
+            price_element = playwright_page.locator('p[data-automation="product-price-was"]').first
+            price = price_element.first.text_content().strip()
 
         return price
     except Exception as e:
@@ -133,7 +141,7 @@ def get_jb_price(playwright_page, url):
         playwright_page.goto(url, wait_until="domcontentloaded", timeout=10000)
         playwright_page.wait_for_selector("span.PriceFont_fontStyle__w0cm2q1.PriceTag_actual__1eb7mu9q", timeout=10000)
 
-        price = playwright_page.locator("span.PriceFont_fontStyle__w0cm2q1.PriceTag_actual__1eb7mu9q").text_content().strip()
+        price = playwright_page.locator("span.PriceFont_fontStyle__w0cm2q1.PriceTag_actual__1eb7mu9q").first.text_content().strip()
 
         return price
     except Exception as e:
@@ -142,8 +150,8 @@ def get_jb_price(playwright_page, url):
 
 def get_good_guys_price(playwright_page, url):
     try:
-        playwright_page.goto(url, wait_until="domcontentloaded", timeout=10000)
-        price = playwright_page.locator("#offerPrice_3074457345621785168").text_content().strip()
+        playwright_page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        price = playwright_page.locator("span.pricepoint-price").first.text_content().strip()
 
         return price
     except Exception as e:
@@ -152,10 +160,17 @@ def get_good_guys_price(playwright_page, url):
 
 def get_kitchen_warehouse_price(playwright_page, url):
     try:
-        playwright_page.goto(url, wait_until="networkidle", timeout=20000)
-        playwright_page.wait_for_selector("span.Typography_display_XS__SVpDH.text-base-black", timeout=20000)
-
-        price = playwright_page.locator("span.Typography_display_XS__SVpDH.text-base-black").text_content().strip()
+        # Ensure the page fully loads
+        playwright_page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        
+        # Check if a discounted price exists
+        discounted_price_element = playwright_page.locator("span.Typography_display_XS__SVpDH.text-base-black")
+        if discounted_price_element.count() > 0:
+            price = discounted_price_element.text_content().strip()
+        else:
+            # If no discounted price, get the RRP
+            rrp_price_element = playwright_page.locator("span.line-through")
+            price = rrp_price_element.text_content().strip()
 
         return price
     except Exception as e:

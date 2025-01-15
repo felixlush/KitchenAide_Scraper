@@ -1,19 +1,23 @@
 import psycopg2
+import os
+from dotenv import load_dotenv
 
-rds_host = "kitchenaid-database-1.cdygoc0oc2f1.ap-southeast-2.rds.amazonaws.com"
-port = "5432"
-database = "kitchenaid-database-1"
-user = "postgres"
-pw = "2tXy3412!"
+load_dotenv()
+
+USER = os.getenv("user")
+PASSWORD = os.getenv("password")
+HOST = os.getenv("host")
+PORT = os.getenv("port")
+DBNAME = os.getenv("dbname")
 
 def get_DB_version():
     try:
-        conn = psycopg2.connect(
-            host=rds_host,
-            port = port,
-            database = database,
-            user = user,
-            password = pw
+        conn  = psycopg2.connect(
+            user=USER,
+            password=PASSWORD,
+            host=HOST,
+            port=PORT,
+            dbname=DBNAME
         )
 
         cursor = conn.cursor()
@@ -24,18 +28,18 @@ def get_DB_version():
         print(f"Error connection to the database: {e}")
         return ("Could not connect to DB")
     
-def add_product(product):
+def add_product_db(product):
     name = product.get("name")
     url = product.get("url")
     company = product.get("company")
 
     try:
-        conn = psycopg2.connect(
-            host=rds_host,
-            port = port,
-            database = database,
-            user = user,
-            password = pw
+        conn  = psycopg2.connect(
+            user=USER,
+            password=PASSWORD,
+            host=HOST,
+            port=PORT,
+            dbname=DBNAME
         )
 
         cursor = conn.cursor()
@@ -60,18 +64,18 @@ def add_product(product):
         print(f"Unexpected error: {e}")
         return "Failed to add product: Unexpected error"
     
-def get_products(product):
-    name = product.get("name")
-    url = product.get("url")
-    company = product.get("company")
-
+    finally:
+        if conn:
+            conn.close()
+    
+def get_db_products():
     try:
-        conn = psycopg2.connect(
-            host=rds_host,
-            port = port,
-            database = database,
-            user = user,
-            password = pw
+        conn  = psycopg2.connect(
+            user=USER,
+            password=PASSWORD,
+            host=HOST,
+            port=PORT,
+            dbname=DBNAME
         )
 
         cursor = conn.cursor()
@@ -100,3 +104,38 @@ def get_products(product):
     except Exception as e:
         print(f"Unexpected error: {e}")
         return "Failed to add product: Unexpected error"
+    
+def get_db_companies():
+    try:
+        conn  = psycopg2.connect(
+            user=USER,
+            password=PASSWORD,
+            host=HOST,
+            port=PORT,
+            dbname=DBNAME
+        )
+
+        cursor = conn.cursor()
+        SQL = "SELECT company_id, company_name FROM companies"
+        cursor.execute(SQL)
+
+        rows = cursor.fetchall()
+
+        products = [
+            {
+                "id": row[0],
+                "name": row[1]
+            }
+            for row in rows
+        ]
+
+        return products
+
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        conn.rollback()  # Rollback the transaction on general database error
+        return "Failed to get companies: Database error"
+
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return "Failed to get companies: Unexpected error"
