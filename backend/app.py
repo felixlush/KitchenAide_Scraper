@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_cors import cross_origin
 import psycopg2
 from scraping import scrape_all_products, get_single_price
-from database import get_db_products, add_product_db, get_db_companies
+from database import get_db_products, add_product_db, get_db_companies, update_db_product
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -12,20 +12,23 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route("/api/scrape", methods=["GET"])
 def scrape():
-    products = get_db_products()
+    products = get_db_products("", "")
     # print(products)
     results = scrape_all_products(products)
+    print(results.get("errors"))
     return jsonify(results), 200
 
 @app.route("/api/scrape/single_price", methods=["GET"]) 
 def scrape_single_price():
-    results = get_single_price("https://www.kitchenwarehouse.com.au/product/kitchenaid-artisan-kek1701-electric-kettle-1-7l-matte-black", "Kitchen Warehouse")
+    results = get_single_price("https://www.davidjones.com/product/kitchenaid-kek1701apl-17l-variable-temperature-kettle-27031587", "David Jones")
     return jsonify(results, 200)
 
 @app.route("/api/products", methods=["GET"])
 def db_connect():
+    search_term = request.args.get("search", "").lower()
+    filter_term = request.args.get("filter", "").lower()
     try:
-        return get_db_products()
+        return get_db_products(search_term, filter_term)
     except Exception as e:
         print(f"Database error: {e}")
         return jsonify({"error": "Database error"}), 500
@@ -53,7 +56,22 @@ def add_product():
     except Exception as e:
         print(f"Unexpected error: {e}")
         return jsonify({"error": "Unexpected error occurred"}), 500
-    
+
+@app.route("/api/products/update", methods=["POST"])
+def update_product():
+    data = request.json
+    try:
+        result = update_db_product(data)
+        return jsonify({"message": result}), 201
+    except psycopg2.IntegrityError as e:
+        print(f"Integrity error: {e}")
+        return jsonify({"error": "Integrity error, possibly duplicate entry"}), 400
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"error": "Database error"}), 500
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return jsonify({"error": "Unexpected error occurred"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

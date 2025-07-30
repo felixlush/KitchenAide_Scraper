@@ -8,7 +8,7 @@ import Home from './pages/Home';
 import Layout from './components/Layout';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
 
   const handleLogin = (credentials) => {
     console.log('Logged In With: ', credentials);

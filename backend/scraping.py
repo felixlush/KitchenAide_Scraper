@@ -7,49 +7,60 @@ from playwright_stealth import stealth_sync
 
 def scrape_all_products(products):
     results = []
-    response = []
+    errors = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36") 
         page = context.new_page()
 
-        for product in products:
+        for i, product in enumerate(products):
+            sku = product.get("sku")
+            colour = product.get("colour")
             name = product.get("name")
             company = product.get("company")
             url = product.get("url")
             
-            match company:
-                case "Harvey Norman":
-                    # price = get_harvey_norman_au_price(page, url)
-                    price = "N/A Harvey Norman Got Bot Detection"
-                case "David Jones":
-                    price = get_david_jones_price(page, url)
-                case "Myer":
-                    price = get_myer_price(page, url)
-                case "JBHIFI":
-                    price = get_jb_price(page, url)
-                case "The Good Guys":
-                    price = get_good_guys_price(page, url)
-                case "Kitchen Warehouse":
-                    price = get_kitchen_warehouse_price(page, url)
-                case "Harvey Norman NZ":
-                    # price = get_harvey_norman_nz_price(page, url)
-                    price = "N/A Harvey Norman Got Bot Detection"
-                case "Stevens NZ":
-                    price = get_stevens_price(page, url)
-                case _:
-                    price = "Company Not Avaliable - Please contact admin"
+            try:
+                match company:
+                    case "Harvey Norman":
+                        errors.append(f"Error Scraping {sku} {product} from {company} in {colour}: Harvey Norman has bot protection")
+                        price = "N/A"
+                    case "David Jones":
+                        price = get_david_jones_price(page, url)
+                    case "Myer":
+                        price = get_myer_price(page, url)
+                    case "JBHIFI":
+                        price = get_jb_price(page, url)
+                    case "The Good Guys":
+                        price = get_good_guys_price(page, url)
+                    case "Kitchen Warehouse":
+                        price = get_kitchen_warehouse_price(page, url)
+                    case "Harvey Norman NZ":
+                        errors.append(f"Error Scraping {sku} {product} from {company} in {colour}: Harvey Norman has bot protection")
+                        price = "N/A"
+                        # price = get_harvey_norman_nz_price(page, url)
+                    case "Stevens NZ":
+                        price = get_stevens_price(page, url)
+                    case _:
+                        price = "Company Not Available - Please contact admin"
 
-            results.append({
-                "Name": name,
-                "Company": company,
-                "URL": url,
-                "Price": price,
-                "Date": datetime.datetime.now()
-            })
-        
+                result = {
+                    "sku": sku,
+                    "colour": colour,
+                    "name": name,
+                    "company": company,
+                    "url": url,
+                    "price": price,
+                    "date": datetime.datetime.now()
+                }
+                results.append(result)
+
+            except Exception as e:
+                errors.append(f"Error Scraping {sku} {product} from {company} in {colour}: {e}")
+
         browser.close()
-    return results
+    return {"results": results, "errors": errors}
+
 
 def get_single_price(url, company):
     with sync_playwright() as p:
@@ -104,14 +115,13 @@ def get_harvey_norman_au_price(playwright_page, url): #Bot Detection
 
 def get_david_jones_price(playwright_page, url): #Need to fix picking up on discount when its not the first div
     try:
-        playwright_page.goto(url, wait_until="networkidle", timeout=10000)
-        playwright_page.wait_for_selector("div.pricing", timeout=10000)
-
-        price_element = playwright_page.locator("p.price.now span.price-display").first
-        if price_element.count() > 0:
-            price = price_element.text_content().strip()
+        playwright_page.goto(url, wait_until="domcontentloaded", timeout=10000)
+        product_price_div = playwright_page.locator("div.prices").first
+        product_price_now = product_price_div.locator("p.price.now span.price-display")
+        if product_price_now.count() > 0:
+            price = product_price_now.text_content().strip()
         else:
-            price_element = playwright_page.locator("span.price-display").first
+            price_element = product_price_div.locator("span.price-display").first
             price = price_element.text_content().strip()
         
 
@@ -124,11 +134,12 @@ def get_david_jones_price(playwright_page, url): #Need to fix picking up on disc
 def get_myer_price(playwright_page, url): #Need to fix picking up on discount when its not the first div
     try:
         playwright_page.goto(url, wait_until="domcontentloaded", timeout=10000)
-        product_price_now = playwright_page.locator('p[data-automation="product-price-now"]')
+        product_price_div = playwright_page.locator('div.css-12nq0ii').first
+        product_price_now = product_price_div.locator('p[data-automation="product-price-now"]')
         if product_price_now.count() > 0:
             price = product_price_now.first.text_content().strip()
         else:
-            price_element = playwright_page.locator('p[data-automation="product-price-was"]').first
+            price_element = product_price_div.locator('p[data-automation="product-price-was"]').first
             price = price_element.first.text_content().strip()
 
         return price
